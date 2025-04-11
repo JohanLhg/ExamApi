@@ -6,7 +6,7 @@ namespace ExamApi.Controllers
 {
 
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     public class AuthController(IAuthService authService) : ControllerBase
     {
         private readonly IAuthService _authService = authService;
@@ -29,6 +29,20 @@ namespace ExamApi.Controllers
         public async Task<IActionResult> Refresh([FromBody] string refreshToken)
         {
             var result = await _authService.RefreshAsync(refreshToken);
+            return Ok(result);
+        }
+
+        [HttpPost("register/technician")]
+        public async Task<IActionResult> RegisterTechnician([FromBody] RegisterRequest request)
+        {
+            var result = await _authService.RegisterTechnicianAsync(request);
+            return Ok(result);
+        }
+
+        [HttpPost("register/client")]
+        public async Task<IActionResult> RegisterClient([FromBody] RegisterRequest request)
+        {
+            var result = await _authService.RegisterClientAsync(request);
             return Ok(result);
         }
     }

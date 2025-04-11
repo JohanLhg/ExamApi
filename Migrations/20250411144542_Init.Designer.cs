@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ExamApi.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20250411080559_init")]
-    partial class init
+    [Migration("20250411144542_Init")]
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -43,6 +43,9 @@ namespace ExamApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("InterventionId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("INTEGER");
 
@@ -66,6 +69,12 @@ namespace ExamApi.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RefreshTokenExpiryTime")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("TEXT");
 
@@ -78,6 +87,8 @@ namespace ExamApi.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("InterventionId");
+
                     b.HasIndex("NormalizedEmail")
                         .HasDatabaseName("EmailIndex");
 
@@ -88,69 +99,36 @@ namespace ExamApi.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
-            modelBuilder.Entity("ExamApi.Data.Entity.Client", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("Address")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Clients");
-                });
-
             modelBuilder.Entity("ExamApi.Data.Entity.Intervention", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ClientId")
+                    b.Property<string>("ClientId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("InterventionTypeId")
                         .HasColumnType("INTEGER");
 
                     b.Property<DateTime>("ScheduledAt")
                         .HasColumnType("TEXT");
 
-                    b.Property<int>("ServiceTypeId")
-                        .HasColumnType("INTEGER");
+                    b.PrimitiveCollection<string>("TechnicianIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ClientId");
 
-                    b.HasIndex("ServiceTypeId");
+                    b.HasIndex("InterventionTypeId");
 
                     b.ToTable("Interventions");
                 });
 
-            modelBuilder.Entity("ExamApi.Data.Entity.InterventionTechnician", b =>
-                {
-                    b.Property<int>("InterventionId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("TechnicianId")
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("InterventionId", "TechnicianId");
-
-                    b.HasIndex("TechnicianId");
-
-                    b.ToTable("InterventionTechnicians");
-                });
-
-            modelBuilder.Entity("ExamApi.Data.Entity.ServiceType", b =>
+            modelBuilder.Entity("ExamApi.Data.Entity.InterventionType", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -162,7 +140,7 @@ namespace ExamApi.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("ServiceTypes");
+                    b.ToTable("InterventionTypes");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -293,42 +271,30 @@ namespace ExamApi.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("ExamApi.Data.Entity.AppUser", b =>
+                {
+                    b.HasOne("ExamApi.Data.Entity.Intervention", null)
+                        .WithMany("Technician")
+                        .HasForeignKey("InterventionId");
+                });
+
             modelBuilder.Entity("ExamApi.Data.Entity.Intervention", b =>
                 {
-                    b.HasOne("ExamApi.Data.Entity.Client", "Client")
-                        .WithMany("Interventions")
+                    b.HasOne("ExamApi.Data.Entity.AppUser", "Client")
+                        .WithMany()
                         .HasForeignKey("ClientId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("ExamApi.Data.Entity.ServiceType", "ServiceType")
-                        .WithMany("Interventions")
-                        .HasForeignKey("ServiceTypeId")
+                    b.HasOne("ExamApi.Data.Entity.InterventionType", "ServiceType")
+                        .WithMany()
+                        .HasForeignKey("InterventionTypeId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("Client");
 
                     b.Navigation("ServiceType");
-                });
-
-            modelBuilder.Entity("ExamApi.Data.Entity.InterventionTechnician", b =>
-                {
-                    b.HasOne("ExamApi.Data.Entity.Intervention", "Intervention")
-                        .WithMany("TechnicianLinks")
-                        .HasForeignKey("InterventionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("ExamApi.Data.Entity.AppUser", "Technician")
-                        .WithMany("TechnicianInterventions")
-                        .HasForeignKey("TechnicianId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Intervention");
-
-                    b.Navigation("Technician");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -382,24 +348,9 @@ namespace ExamApi.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("ExamApi.Data.Entity.AppUser", b =>
-                {
-                    b.Navigation("TechnicianInterventions");
-                });
-
-            modelBuilder.Entity("ExamApi.Data.Entity.Client", b =>
-                {
-                    b.Navigation("Interventions");
-                });
-
             modelBuilder.Entity("ExamApi.Data.Entity.Intervention", b =>
                 {
-                    b.Navigation("TechnicianLinks");
-                });
-
-            modelBuilder.Entity("ExamApi.Data.Entity.ServiceType", b =>
-                {
-                    b.Navigation("Interventions");
+                    b.Navigation("Technician");
                 });
 #pragma warning restore 612, 618
         }

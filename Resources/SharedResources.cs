@@ -1,4 +1,4 @@
-﻿namespace ExamApi.Resource
+﻿namespace ExamApi.Resources
 {
     public class SharedResources
     {

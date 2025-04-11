@@ -5,52 +5,78 @@ using System.Text;
 using ExamApi.Data.Entity;
 using ExamApi.DTO.Auth;
 using ExamApi.Exceptions;
-using ExamApi.Resource;
-using Microsoft.AspNetCore.Identity;
+using ExamApi.Resources;
 using Microsoft.Extensions.Localization;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using ExamApi.Data.Repository;
+using ExamApi.Data.Mappers;
 
 namespace ExamApi.Service
 {
-    public class AuthService(UserManager<AppUser> userManager, IConfiguration config, IStringLocalizer<SharedResources> localizer) : IAuthService
+    public class AuthService(
+        IUserRepository authRepository,
+        IConfiguration config,
+        IStringLocalizer<SharedResources> localizer
+    ) : IAuthService
     {
-        private readonly UserManager<AppUser> _userManager = userManager;
+        private readonly IUserRepository _authRepository = authRepository;
         private readonly IConfiguration _config = config;
         private readonly IStringLocalizer<SharedResources> _localizer = localizer;
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
         {
-            var user = new AppUser
+            var user = request.ToAppUser();
+            var result = await _authRepository.CreateUser(user, request.Password);
+            if (!result)
             {
-                Email = request.Email,
-                UserName = request.Email,
-                FullName = request.FullName
-            };
-
-            var result = await _userManager.CreateAsync(user, request.Password);
-            if (!result.Succeeded)
-            {
-                var errors = string.Join(", ", result.Errors.Select(e => e.Description));
-                throw new AppException(_localizer["Registration_Failed"], 401);
+                throw new AppException(_localizer["Registration_Failed"], 400);
             }
 
-            var tokens = await GenerateTokensAsync(user);
-            return tokens;
+            return await GenerateTokensAsync(user);
+        }
+
+        public async Task<AuthResponse> RegisterTechnicianAsync(RegisterRequest request)
+        {
+            var user = request.ToAppUser();
+            var result = await _authRepository.CreateUser(user, request.Password);
+            if (!result)
+            {
+                throw new AppException(_localizer["Registration_Failed"], 400);
+            }
+
+            _authRepository.AddRoleToUser(user, "technician");
+
+            return await GenerateTokensAsync(user);
+        }
+
+        public async Task<AuthResponse> RegisterClientAsync(RegisterRequest request)
+        {
+            var user = request.ToAppUser();
+            var result = await _authRepository.CreateUser(user, request.Password);
+            if (!result)
+            {
+                throw new AppException(_localizer["Registration_Failed"], 400);
+            }
+
+            _authRepository.AddRoleToUser(user, "client");
+
+            return await GenerateTokensAsync(user);
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
         {
-            var user = await _userManager.FindByEmailAsync(request.Email);
-            if (user == null || !await _userManager.CheckPasswordAsync(user, request.Password))
+            var user = await _authRepository.FindByEmailAsync(request.Email);
+            if (user == null || !await _authRepository.CheckPasswordAsync(user, request.Password))
+            {
                 throw new AppException(_localizer["Invalid_Credentials"], 401);
+            }
 
             return await GenerateTokensAsync(user);
         }
 
         public async Task<AuthResponse> RefreshAsync(string refreshToken)
         {
-            var user = _userManager.Users.FirstOrDefault(u => u.RefreshToken == refreshToken);
+            var user = await _authRepository.FindByRefreshTokenAsync(refreshToken);
 
             if (user == null || user.RefreshTokenExpiryTime < DateTime.UtcNow)
                 throw new AppException(_localizer["Invalid_Token"], 401);
@@ -67,7 +93,7 @@ namespace ExamApi.Service
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _authRepository.GetRolesAsync(user);
             foreach (var role in roles)
             {
                 authClaims.Add(new Claim(ClaimTypes.Role, role));
@@ -90,7 +116,7 @@ namespace ExamApi.Service
             var refreshToken = GenerateRefreshToken();
             user.RefreshToken = refreshToken;
             user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7);
-            await _userManager.UpdateAsync(user);
+            await _authRepository.UpdateUserAsync(user);
 
             return new AuthResponse
             {

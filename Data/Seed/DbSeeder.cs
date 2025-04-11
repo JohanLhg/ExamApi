@@ -14,7 +14,7 @@
 
             var seeders = new IDbSeeder[]
             {
-                new AdminSeeder(scope.ServiceProvider)
+                new UserSeeder(scope.ServiceProvider)
             };
 
             foreach (var seeder in seeders)

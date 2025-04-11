@@ -9,6 +9,8 @@ using ExamApi.Service;
 using ExamApi.Data;
 using ExamApi.Middlewares;
 using Microsoft.Extensions.Options;
+using ExamApi.Swagger;
+using ExamApi.Data.Repository;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +19,37 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new() { Title = "Exam API", Version = "v1" });
+
+    options.OperationFilter<LanguageHeaderOperationFilter>();
+
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Saisis ici ton token JWT : **Bearer {ton_token}**"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
+        }
+    });
+});
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
@@ -28,10 +60,14 @@ builder.Services.AddIdentity<AppUser, IdentityRole>()
 builder.Services.AddAuthorization();
 builder.Services.AddAuthentication();
 
-builder.Services.AddScoped<IDbSeeder, AdminSeeder>();
+builder.Services.AddScoped<IDbSeeder, UserSeeder>();
 builder.Services.AddScoped<DbSeeder>();
 
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddScoped<IInterventionRepository, InterventionRepository>();
+builder.Services.AddScoped<IInterventionService, InterventionService>();
 
 var jwtKey = builder.Configuration["Jwt:Key"];
 var jwtIssuer = builder.Configuration["Jwt:Issuer"];
@@ -80,6 +116,7 @@ app.UseHttpsRedirection();
 var locOptions = app.Services.GetRequiredService<IOptions<RequestLocalizationOptions>>();
 app.UseRequestLocalization(locOptions.Value);
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
